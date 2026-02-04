@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <meta charset="UTF-8">
+  <title>Virtuelles Diodenlabor – Plotly Version</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59,130,246,0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%);
+      color: var(--text);
+    }
+    header {
+      padding: 20px 40px;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to right, rgba(15,23,42,0.9), rgba(15,23,42,0.6));
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { margin: 0; font-size: 1.4rem; }
+    header span { font-size: 0.9rem; color: var(--muted); }
+    main { padding: 20px 40px 40px; max-width: 1200px; margin: 0 auto; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: linear-gradient(145deg, #020617, #020617, #020617, #020617);
+      border-radius: 16px;
+      padding: 18px 18px 22px;
+      border: 1px solid #1f2937;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.6);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2 span.tag {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border: 1px solid rgba(148,163,184,0.4);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .controls {
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+      position: relative;
+      z-index: 1;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 4px 0;
+      color: var(--muted);
+    }
+    label span.value {
+      min-width: 60px;
+      text-align: right;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    select {
+      width: 100%;
+      padding: 4px 6px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+    button {
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      background: radial-gradient(circle at top left, var(--accent-soft), #020617);
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    button:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.4);
+    }
+    .plot {
+      width: 100%;
+      height: 260px;
+    }
+    p.result {
+      font-size: 0.85rem;
+      color: var(--muted);
+      white-space: pre-line;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Virtuelles Diodenlabor</h1>
+    <span>Halbleiterdioden · Kennlinien · Gleichrichter · Stabilisierung</span>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <!-- 1. Diodenkennlinie -->
+    <div class="card">
+      <h2>Diodenkennlinie <span class="tag">I–V</span></h2>
+      <div class="controls">
+        <label>
+          <span>Diodentyp</span>
+          <select id="diodeType" onchange="drawDiodeIV()">
+            <option value="si">Silizium (Si)</option>
+            <option value="ge">Germanium (Ge)</option>
+            <option value="led">LED (rot)</option>
+            <option value="zener">Zener 5.1 V</option>
+          </select>
+        </label>
+      </div>
+      <div id="ivPlot" class="plot"></div>
+    </div>
+
+    <!-- 2. LED mit Vorwiderstand -->
+    <div class="card">
+      <h2>LED mit Vorwiderstand <span class="tag">DC</span></h2>
+      <div class="controls">
+        <label>
+          <span>Versorgungsspannung (V)</span>
+          <span class="value" id="ledVsOut">9.0</span>
+        </label>
+        <input id="ledVs" type="range" min="3" max="24" step="0.5"
+               value="9" oninput="ledVsOut.textContent=this.value; calcLedResistor();">
+
+        <label>
+          <span>LED‑Durchlassspannung Vf (V)</span>
+          <span class="value" id="ledVfOut">2.0</span>
+        </label>
+        <input id="ledVf" type="range" min="1.5" max="3.5" step="0.1"
+               value="2" oninput="ledVfOut.textContent=this.value; calcLedResistor();">
+
+        <label>
+          <span>LED‑Strom (mA)</span>
+          <span class="value" id="ledIfOut">15</span>
+        </label>
+        <input id="ledIf" type="range" min="5" max="30" step="1"
+               value="15" oninput="ledIfOut.textContent=this.value; calcLedResistor();">
+      </div>
+      <p id="ledResult" class="result"></p>
+    </div>
+
+    <!-- 3. Gleichrichter -->
+    <div class="card">
+      <h2>Gleichrichter & Ripple <span class="tag">AC → DC</span></h2>
+      <div class="controls">
+        <label>
+          <span>Gleichrichtertyp</span>
+          <select id="rectType" onchange="drawRectifier()">
+            <option value="half">Einweggleichrichter</option>
+            <option value="full">Brückengleichrichter</option>
+          </select>
+        </label>
+
+        <label>
+          <span>AC‑Amplitude (V)</span>
+          <span class="value" id="acAmpOut">10</span>
+        </label>
+        <input id="acAmp" type="range" min="5" max="30" step="1" value="10"
+               oninput="acAmpOut.textContent=this.value; drawRectifier();">
+
+        <label>
+          <span>Frequenz (Hz)</span>
+          <span class="value" id="acFreqOut">50</span>
+        </label>
+        <input id="acFreq" type="range" min="10" max="100" step="1" value="50"
+               oninput="acFreqOut.textContent=this.value; drawRectifier();">
+
+        <label>
+          <span>Kondensator (µF)</span>
+          <span class="value" id="capUfOut">0</span>
+        </label>
+        <input id="capUf" type="range" min="0" max="2000" step="10" value="0"
+               oninput="capUfOut.textContent=this.value; drawRectifier();">
+
+        <label>
+          <span>Lastwiderstand (kΩ)</span>
+          <span class="value" id="loadKOut">10</span>
+        </label>
+        <input id="loadK" type="range" min="1" max="50" step="1" value="10"
+               oninput="loadKOut.textContent=this.value; drawRectifier();">
+      </div>
+      <p id="rippleInfo" class="result"></p>
+      <div id="rectPlot" class="plot"></div>
+    </div>
+
+    <!-- 4. Zener-Stabilisierung -->
+    <div class="card">
+      <h2>Zener‑Stabilisierung <span class="tag">Regelung</span></h2>
+      <div class="controls">
+        <label>
+          <span>Eingangsspannung Vin (V)</span>
+          <span class="value" id="vinOut">15.0</span>
+        </label>
+        <input id="vin" type="range" min="6" max="24" step="0.5" value="15"
+               oninput="vinOut.textContent=this.value; calcZener();">
+
+        <label>
+          <span>Zenerspannung Vz (V)</span>
+          <span class="value" id="vzOut">5.1</span>
+        </label>
+        <input id="vz" type="range" min="3" max="12" step="0.1" value="5.1"
+               oninput="vzOut.textContent=this.value; calcZener();">
+
+        <label>
+          <span>Laststrom (mA)</span>
+          <span class="value" id="iloadOut">10</span>
+        </label>
+        <input id="iload" type="range" min="1" max="50" step="1" value="10"
+               oninput="iloadOut.textContent=this.value; calcZener();">
+
+        <label>
+          <span>Max. Zenerstrom (mA)</span>
+          <span class="value" id="izmaxOut">20</span>
+        </label>
+        <input id="izmax" type="range" min="5" max="50" step="1" value="20"
+               oninput="izmaxOut.textContent=this.value; calcZener();">
+      </div>
+      <p id="zenerResult" class="result"></p>
+    </div>
+
+  </div>
+</main>
+
+<script src="lab_plotly.js"></script>
+</body>
+</html>
